@@ -572,6 +572,52 @@ int _MCP_ioctl100_patch(ipcmessage *msg) {
                 gMemHookCompleted = true;
                 break;
             }
+            case IPC_CUSTOM_LOAD_CUSTOM_RPL: {
+                DEBUG_FUNCTION_LINE("IPC_CUSTOM_LOAD_CUSTOM_RPL\n");
+                if (msg->ioctl.length_in >= sizeof(MochaRPLLoadInfo) + 4) {
+                    int target = msg->ioctl.buffer_in[0x04 / 0x04];
+                    if (target != LOAD_RPX_TARGET_SD_CARD) {
+                        DEBUG_FUNCTION_LINE("Invalid target\n");
+                        return 29;
+                    }
+                    uint32_t filesize   = msg->ioctl.buffer_in[0x08 / 0x04];
+                    uint32_t fileoffset = msg->ioctl.buffer_in[0x0C / 0x04];
+                    char *replaceTarget = (char *) &msg->ioctl.buffer_in[0x10 / 0x04];
+                    char *str_ptr       = (char *) &msg->ioctl.buffer_in[0x50 / 0x04];
+
+                    RPXFileReplacements *newReplacement = svcAlloc(0xCAFF, sizeof(RPXFileReplacements));
+                    if (newReplacement == NULL) {
+                        DEBUG_FUNCTION_LINE("alloc failed\n");
+                        return 29;
+                    }
+
+                    memset(newReplacement, 0, sizeof(*newReplacement));
+
+                    strncpy(newReplacement->replacementPath, str_ptr, sizeof(newReplacement->replacementPath) - 1);
+                    strncpy(newReplacement->replaceName, replaceTarget, sizeof(newReplacement->replaceName) - 1);
+                    newReplacement->fileOffset = fileoffset;
+                    newReplacement->fileSize   = filesize;
+                    newReplacement->lifetime   = REPLACEMENT_LIFETIME_DURING_RPX_REPLACEMENT;
+                    newReplacement->relativeTo = PATH_RELATIVE_TO_SD_ROOT;
+                    newReplacement->type       = REPLACEMENT_TYPE_HOMEBREW_RPL;
+
+                    DEBUG_FUNCTION_LINE("Add replacements! %p\n", newReplacement);
+
+
+                    if (!addDynamicReplacement(newReplacement)) {
+                        DEBUG_FUNCTION_LINE("addDynamicReplacement failed, abort redirecting %s\n", newReplacement->replacementPath);
+                        svcFree(0xCAFF, newReplacement);
+                        return 22;
+                    }
+
+                    DEBUG_FUNCTION_LINE("Will load %s for next title from target: %d (offset %u, filesize %u)\n",
+                                        newReplacement->replacementPath, target, fileoffset, filesize);
+                    return 0;
+                } else {
+                    DEBUG_FUNCTION_LINE("buffer too small %u vs %u\n", msg->ioctl.length_in, sizeof(MochaRPLLoadInfo) + 4);
+                    return 29;
+                }
+            }
             case IPC_CUSTOM_LOAD_CUSTOM_RPX: {
                 if (msg->ioctl.length_in >= sizeof(MochaRPXLoadInfo) + 4) {
                     int target = msg->ioctl.buffer_in[0x04 / 0x04];
