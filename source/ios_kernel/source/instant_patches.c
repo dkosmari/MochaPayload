@@ -22,9 +22,22 @@
  * distribution.
  ***************************************************************************/
 #include "../../ios_fs/ios_fs_syms.h"
+#undef _text_start
+#undef _text_end
+#undef _bss_start
+#undef _bss_end
 #include "../../ios_mcp/ios_mcp_syms.h"
+#undef _text_start
+#undef _text_end
+#undef _bss_start
+#undef _bss_end
 #include "../../ios_net/ios_net_syms.h"
+#undef _text_start
+#undef _text_end
+#undef _bss_start
+#undef _bss_end
 #include "elf_patcher.h"
+#include "instant_patches_common.h"
 #include "ios_fs_patches.h"
 #include "kernel_patches.h"
 #include "types.h"
@@ -38,28 +51,36 @@ typedef struct {
     u32 type;
     u32 cached;
 } ios_map_shared_info_t;
-#define MCP_CUSTOM_TEXT_LENGTH     0xA000
-#define MCP_CUSTOM_TEXT_START      0x05116000
-#define MCP_CUSTOM_BSS_START       0x050BD000
-#define MCP_CUSTOM_BSS_LENGTH      0x3000
-#define ENVIRONMENT_PATH_LENGTH    0x100
+#define ENVIRONMENT_PATH_LENGTH   0x100
 
-#define mcp_text_phys(addr)        ((u32) (addr) -0x05000000 + 0x081C0000)
-#define mcp_rodata_phys(addr)      ((u32) (addr) -0x05060000 + 0x08220000)
-#define mcp_data_phys(addr)        ((u32) (addr) -0x05074000 + 0x08234000)
-#define net_phys(addr)             ((u32) (addr))
-#define fsa_phys(addr)             ((u32) (addr))
-#define kernel_phys(addr)          ((u32) (addr))
-#define acp_text_phys(addr)        ((u32) (addr) -0xE0000000 + 0x12900000)
-#define nimboss_text_phys(addr)    ((u32) (addr) -0xe2000000 + 0x12EC0000)
-#define nimboss_rodata_phys(addr)  ((u32) (addr) -0xe2280000 + 0x13140000)
-#define bsp_data_phys(addr)        ((u32) (addr) -0xe6042000 + 0x13d02000)
-#define mcp_custom_text_phys(addr) ((u32) (addr) -0x05100000 + 0x13D80000)
-#define mcp_custom_bss_phys(addr)  ((u32) (addr) -0x05000000 + 0x081C0000)
+#define mcp_text_phys(addr)       ((u32) (addr) -0x05000000 + 0x081C0000)
+#define mcp_rodata_phys(addr)     ((u32) (addr) -0x05060000 + 0x08220000)
+#define mcp_data_phys(addr)       ((u32) (addr) -0x05074000 + 0x08234000)
+#define net_phys(addr)            ((u32) (addr))
+#define fsa_phys(addr)            ((u32) (addr))
+#define kernel_phys(addr)         ((u32) (addr))
+#define acp_text_phys(addr)       ((u32) (addr) -0xE0000000 + 0x12900000)
+#define nimboss_text_phys(addr)   ((u32) (addr) -0xe2000000 + 0x12EC0000)
+#define nimboss_rodata_phys(addr) ((u32) (addr) -0xe2280000 + 0x13140000)
+#define bsp_data_phys(addr)       ((u32) (addr) -0xe6042000 + 0x13d02000)
 
-void instant_patches_setup(void) {
-    // apply IOS ELF launch hook
-    *(volatile u32 *) 0x0812A120 = ARM_BL(0x0812A120, kernel_launch_ios);
+void instant_patches_setup(u32 stroopwafel) {
+
+    if (!stroopwafel) {
+        // stroopwafel already hooks the reload and goes trough minute
+        // apply IOS ELF launch hook
+        *(volatile u32 *) 0x0812A120 = ARM_BL(0x0812A120, kernel_launch_ios);
+
+        // patches already applied by stroopwafel
+        // fix 10 minute timeout that crashes MCP after 10 minutes of booting
+        *(volatile u32 *) mcp_text_phys(0x05022474) = 0xFFFFFFFF; // NEW_TIMEOUT
+
+        // Patch FS to syslog everything
+        *(volatile u32 *) fsa_phys(0x107F5720) = ARM_B(0x107F5720, 0x107F0C84);
+
+        // Patch MCP to syslog everything
+        *(volatile u32 *) mcp_text_phys(0x05055438) = ARM_B(0x05055438, 0x0503dcf8);
+    }
 
     *(volatile u32 *) 0x0812CD2C = ARM_B(0x0812CD2C, kernel_syscall_0x81);
 
@@ -129,13 +150,8 @@ void instant_patches_setup(void) {
         }
     }
 
-    int (*_iosMapSharedUserExecution)(void *descr) = (void *) 0x08124F88;
-
     // patch kernel dev node registration
     *(volatile u32 *) kernel_phys(0x081430B4) = 1;
-
-    // fix 10 minute timeout that crashes MCP after 10 minutes of booting
-    *(volatile u32 *) mcp_text_phys(0x05022474) = 0xFFFFFFFF; // NEW_TIMEOUT
 
     kernel_memset((void *) mcp_custom_bss_phys(0x050BD000), 0, MCP_CUSTOM_BSS_LENGTH);
 
@@ -221,26 +237,24 @@ void instant_patches_setup(void) {
     // force check USB storage on load
     *(volatile u32 *) acp_text_phys(0xE012202C) = 0x00000001; // find USB flag
 
-    // Patch FS to syslog everything
-    *(volatile u32 *) fsa_phys(0x107F5720) = ARM_B(0x107F5720, 0x107F0C84);
+    if (!stroopwafel) {
+        // Memory was already mapped via stroopwafel
+        int (*_iosMapSharedUserExecution)(void *descr) = (void *) 0x08124F88;
+        ios_map_shared_info_t map_info;
+        map_info.paddr  = mcp_custom_bss_phys(MCP_CUSTOM_BSS_START);
+        map_info.vaddr  = MCP_CUSTOM_BSS_START;
+        map_info.size   = MCP_CUSTOM_BSS_LENGTH;
+        map_info.domain = 1; // MCP
+        map_info.type   = 3; // 0 = undefined, 1 = kernel only, 2 = read only, 3 = read/write
+        map_info.cached = 0xFFFFFFFF;
+        _iosMapSharedUserExecution(&map_info); // actually a bss section but oh well it will have read/write
 
-    // Patch MCP to syslog everything
-    *(volatile u32 *) mcp_text_phys(0x05055438) = ARM_B(0x05055438, 0x0503dcf8);
-
-    ios_map_shared_info_t map_info;
-    map_info.paddr  = mcp_custom_bss_phys(MCP_CUSTOM_BSS_START);
-    map_info.vaddr  = MCP_CUSTOM_BSS_START;
-    map_info.size   = MCP_CUSTOM_BSS_LENGTH;
-    map_info.domain = 1; // MCP
-    map_info.type   = 3; // 0 = undefined, 1 = kernel only, 2 = read only, 3 = read/write
-    map_info.cached = 0xFFFFFFFF;
-    _iosMapSharedUserExecution(&map_info); // actually a bss section but oh well it will have read/write
-
-    map_info.paddr  = mcp_custom_text_phys(MCP_CUSTOM_TEXT_START);
-    map_info.vaddr  = MCP_CUSTOM_TEXT_START;
-    map_info.size   = MCP_CUSTOM_TEXT_LENGTH;
-    map_info.domain = 1; // MCP
-    map_info.type   = 3; // 0 = undefined, 1 = kernel only, 2 = read only, 3 = read write
-    map_info.cached = 0xFFFFFFFF;
-    _iosMapSharedUserExecution(&map_info);
+        map_info.paddr  = mcp_custom_text_phys(MCP_CUSTOM_TEXT_START);
+        map_info.vaddr  = MCP_CUSTOM_TEXT_START;
+        map_info.size   = MCP_CUSTOM_TEXT_LENGTH;
+        map_info.domain = 1; // MCP
+        map_info.type   = 3; // 0 = undefined, 1 = kernel only, 2 = read only, 3 = read write
+        map_info.cached = 0xFFFFFFFF;
+        _iosMapSharedUserExecution(&map_info);
+    }
 }
