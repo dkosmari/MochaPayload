@@ -62,7 +62,7 @@ def handle_client(sock, addr):
     hb_thread = threading.Thread(target=heartbeat_loop, args=(sock,), daemon=True)
     hb_thread.start()
 
-    sock.settimeout(1.0)
+    sock.settimeout(0.25)
     rx_buffer = ""
 
     while True:
@@ -86,6 +86,9 @@ def handle_client(sock, addr):
                 print(f"{line}")
 
         except socket.timeout:
+            if rx_buffer:
+                print(f"{rx_buffer}", end="", flush=True)
+                rx_buffer = ""
             continue
         except Exception as e:
             print(f"[!] Connection Error: {e}")
@@ -272,7 +275,7 @@ if __name__ == "__main__":
     try:
         while True:
             # Simple input loop
-            cmd = input("> ")
+            cmd = input()
 
             with client_lock:
                 if current_client:
