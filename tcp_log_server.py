@@ -236,6 +236,8 @@ def iopshell_completer(text, state):
 
 def prepare_readline():
 
+    readline.read_init_file()
+
     hist_filename = ".wiiu_shell_history"
     try:
         from xdgenvpy.xdgenv import XDG
@@ -253,7 +255,6 @@ def prepare_readline():
         pass
     atexit.register(readline.write_history_file, hist_path)
     readline.set_auto_history(True)
-    readline.parse_and_bind("tab: complete")
 
     readline.set_completer_delims(" ")
     readline.set_completer(iopshell_completer)
