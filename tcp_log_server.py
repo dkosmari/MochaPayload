@@ -133,127 +133,90 @@ def server_listener():
             print(f"[!] Server Error: {e}")
 
 
-# readline completion code
+## ---------------------------------- ##
+## Start of readline completion code. ##
+## ---------------------------------- ##
+command_map = {
+    "aroma": {
+        "help": None,
+        "plugins": {
+            "details"    : None, # aroma plugins details
+            "heap_usage" : None, # aroma plugins heap_usage
+            "help"       : None, # aroma plugins help
+            "list"       : None, # aroma plugins list
+        },
+    },
+    "cos": {
+        "bootperf"    : None, # cos bootperf
+        "coretrace"   : None, # cos coretrace
+        "cpuusage"    : None, # cos cpuusage [c] [p]
+        "crashdump"   : None, # cos crashdump [0|1]
+        "ctxdump"     : None, # cos ctxdump addr
+        "debug"       : None, # cos debug
+        "disasm"      : None, # cos disasm addr [words]
+        "fault"       : None, # cos fault [cmd]
+        "fslogdump"   : None, # cos fslogdump
+        "getsym"      : None, # cos getsym addr
+        "heapcheck"   : None, # cos heapcheck addr
+        "heapdump"    : None, # cos heapdump addr
+        "heaps"       : None, # cos heaps
+        "help"        : None, # cos help
+        "intstats"    : None, # cos intstats [coreId]
+        "iodump"      : None, # cos iodump [coreId]
+        "iostats"     : None, # cos iostats [coreId]
+        "kill"        : None, # cos kill
+        "killrestart" : None, # cos killrestart
+        "kpanic"      : None, # cos kpanic
+        "kstats"      : None, # cos kstats [coreId]
+        "launch"      : None, # cos launch hi lo
+        "launchex"    : None, # cos launchex tid [args]
+        "logdump"     : None, # cos logdump
+        "logsave"     : None, # cos logsave
+        "memdump"     : None, # cos memdump addr [words]
+        "modules"     : None, # cos modules
+        "ospanic"     : None, # cos ospanic
+        "osstats"     : None, # cos osstats [coreId]
+        "runonthread" : None, # cos runonthread [r]
+        "sdkversion"  : None, # cos sdkversion
+        "setdabr"     : None, # cos setdabr addr [r] [w]
+        "setfslog"    : None, # cos setfslog [0|1|2]
+        "setiabr"     : None, # cos setiabr addr
+        "setword"     : None, # cos setword addr value
+        "slowlaunch"  : None, # cos slowlaunch tid [args]
+        "stacktrace"  : None, # cos stacktrace addr
+        "tcheck"      : None, # cos tcheck
+        "threads"     : None, # cos threads
+        "timestamp"   : None, # cos timestamp [1|2|3|4]
+        "ttrace"      : None, # cos ttrace
+    },
+    "iosu": {
+        "help"     : None,
+        "reboot"   : None,
+        "reload"   : None,
+        "shutdown" : None,
+    },
+}
 
-top_cmds = [
-    "aroma",
-    "cos",
-    "iosu"
-]
-
-aroma_cmds = [
-    "help",    # aroma help
-    "plugins", # aroma plugins
-]
-
-aroma_plugins_cmds = [
-    "details",    # aroma plugins details
-    "heap_usage", # aroma plugins heap_usage
-    "help",       # aroma plugins help
-    "list",       # aroma plugins list
-]
-
-cos_cmds = [
-    "bootperf",    # cos bootperf
-    "coretrace",   # cos coretrace
-    "cpuusage",    # cos cpuusage [c] [p]
-    "crashdump",   # cos crashdump [0|1]
-    "ctxdump",     # cos ctxdump addr
-    "debug",       # cos debug
-    "disasm",      # cos disasm addr [words]
-    "fault",       # cos fault [cmd]
-    "fslogdump",   # cos fslogdump
-    "getsym",      # cos getsym addr
-    "heapcheck",   # cos heapcheck addr
-    "heapdump",    # cos heapdump addr
-    "heaps",       # cos heaps
-    "help",        # cos help
-    "intstats",    # cos intstats [coreId]
-    "iodump",      # cos iodump [coreId]
-    "iostats",     # cos iostats [coreId]
-    "kill",        # cos kill
-    "killrestart", # cos killrestart
-    "kpanic",      # cos kpanic
-    "kstats",      # cos kstats [coreId]
-    "launch",      # cos launch hi lo
-    "launchex",    # cos launchex tid [args]
-    "logdump",     # cos logdump
-    "logsave",     # cos logsave
-    "memdump",     # cos memdump addr [words]
-    "modules",     # cos modules
-    "ospanic",     # cos ospanic
-    "osstats",     # cos osstats [coreId]
-    "runonthread", # cos runonthread [r]
-    "sdkversion",  # cos sdkversion
-    "setdabr",     # cos setdabr addr [r] [w]
-    "setfslog",    # cos setfslog [0|1|2]
-    "setiabr",     # cos setiabr addr
-    "setword",     # cos setword addr value
-    "slowlaunch",  # cos slowlaunch tid [args]
-    "stacktrace",  # cos stacktrace addr
-    "tcheck",      # cos tcheck
-    "threads",     # cos threads
-    "timestamp",   # cos timestamp [1|2|3|4]
-    "ttrace",      # cos ttrace
-]
-
-iosu_cmds = [
-    "help",
-    "reboot",
-    "reload",
-    "shutdown",
-]
-
-def items_with_prefix(haystack, needle):
-    if len(needle) == 0:
-        return haystack
-    result = []
-    for hay in haystack:
-        if hay.startswith(needle):
-            result.append(hay)
-    return result
-
-def get_aroma_candidates_for(needle, line, tokens):
-    if len(tokens) == 2:
-        return items_with_prefix(aroma_cmds, needle)
-    if len(tokens) == 3 and tokens[1] == "plugins":
-        return items_with_prefix(aroma_plugins_cmds, needle)
-    return None
-
-def get_cos_candidates_for(needle, line, tokens):
-    if len(tokens) == 2:
-        return items_with_prefix(cos_cmds, needle)
-    return None
-
-def get_iosu_candidates_for(needle, line, tokens):
-    if len(tokens) == 2:
-        return items_with_prefix(iosu_cmds, needle)
-    return None
-
-def get_candidates_for(needle):
-    line = readline.get_line_buffer()
-    if len(line) == 0:
-        return top_cmds
-
-    tokens = line.split(" ")
-    if len(tokens) < 2:
-        return items_with_prefix(top_cmds, needle)
-
-    match tokens[0]:
-        case "aroma":
-            return get_aroma_candidates_for(needle, line, tokens)
-        case "cos":
-            return get_cos_candidates_for(needle, line, tokens)
-        case "iosu":
-            return get_iosu_candidates_for(needle, line, tokens)
-
-    return None
+def get_candidates_for(text, tokens):
+    # first navigate using all tokens except the last
+    node = command_map
+    for token in tokens[:-1]:
+        if token in node:
+            node = node[token]
+            if node is None:
+                return []
+    # all keys that start with text are candidates
+    return [x for x in node.keys() if x.startswith(text)]
 
 def iopshell_completer(text, state):
-    candidates = get_candidates_for(text)
+    tokens = readline.get_line_buffer().split(" ")
+    candidates = get_candidates_for(text, tokens)
     if candidates and state < len(candidates):
         return candidates[state]
     return None
+## -------------------------------- ##
+## Enf of readline completion code. ##
+## -------------------------------- ##
 
 def prepare_readline():
 
