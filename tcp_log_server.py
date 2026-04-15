@@ -135,7 +135,23 @@ def server_listener():
 
 # readline completion code
 
-top_cmds = ["cos", "aroma"]
+top_cmds = [
+    "aroma",
+    "cos",
+    "iosu"
+]
+
+aroma_cmds = [
+    "help",    # aroma help
+    "plugins", # aroma plugins
+]
+
+aroma_plugins_cmds = [
+    "details",    # aroma plugins details
+    "heap_usage", # aroma plugins heap_usage
+    "help",       # aroma plugins help
+    "list",       # aroma plugins list
+]
 
 cos_cmds = [
     "bootperf",    # cos bootperf
@@ -181,16 +197,11 @@ cos_cmds = [
     "ttrace",      # cos ttrace
 ]
 
-aroma_cmds = [
-    "help",    # aroma help
-    "plugins", # aroma plugins
-]
-
-aroma_plugins_cmds = [
-    "details",    # aroma plugins details
-    "heap_usage", # aroma plugins heap_usage
-    "help",       # aroma plugins help
-    "list",       # aroma plugins list
+iosu_cmds = [
+    "help",
+    "reboot",
+    "reload",
+    "shutdown",
 ]
 
 def items_with_prefix(haystack, needle):
@@ -202,16 +213,21 @@ def items_with_prefix(haystack, needle):
             result.append(hay)
     return result
 
-def get_cos_candidates_for(needle, line, tokens):
-    if len(tokens) == 2:
-        return items_with_prefix(cos_cmds, needle)
-    return None
-
 def get_aroma_candidates_for(needle, line, tokens):
     if len(tokens) == 2:
         return items_with_prefix(aroma_cmds, needle)
     if len(tokens) == 3 and tokens[1] == "plugins":
         return items_with_prefix(aroma_plugins_cmds, needle)
+    return None
+
+def get_cos_candidates_for(needle, line, tokens):
+    if len(tokens) == 2:
+        return items_with_prefix(cos_cmds, needle)
+    return None
+
+def get_iosu_candidates_for(needle, line, tokens):
+    if len(tokens) == 2:
+        return items_with_prefix(iosu_cmds, needle)
     return None
 
 def get_candidates_for(needle):
@@ -224,10 +240,12 @@ def get_candidates_for(needle):
         return items_with_prefix(top_cmds, needle)
 
     match tokens[0]:
-        case "cos":
-            return get_cos_candidates_for(needle, line, tokens)
         case "aroma":
             return get_aroma_candidates_for(needle, line, tokens)
+        case "cos":
+            return get_cos_candidates_for(needle, line, tokens)
+        case "iosu":
+            return get_iosu_candidates_for(needle, line, tokens)
 
     return None
 
