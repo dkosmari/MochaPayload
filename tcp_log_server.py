@@ -205,6 +205,8 @@ def get_candidates_for(text, tokens):
             node = node[token]
             if node is None:
                 return []
+        else: # if user typed garbage, return no candidates
+            return []
     # all keys that start with text are candidates
     return [x for x in node.keys() if x.startswith(text)]
 
