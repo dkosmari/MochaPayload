@@ -55,6 +55,8 @@ def handle_client(sock, addr):
     """Reads logs from Wii U and prints them"""
     global current_client
 
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+
     print(f"\n[+] Connected to {addr[0]}")
     print("[*] Ready for logs (Type commands anytime)...\n")
 
@@ -62,7 +64,7 @@ def handle_client(sock, addr):
     hb_thread = threading.Thread(target=heartbeat_loop, args=(sock,), daemon=True)
     hb_thread.start()
 
-    sock.settimeout(0.25)
+    sock.settimeout(0.5)
     rx_buffer = ""
 
     while True:
@@ -264,7 +266,6 @@ if __name__ == "__main__":
                 if current_client:
                     try:
                         current_client.sendall((cmd + "\r\n").encode())
-                        pass
                     except:
                         print("[!] Failed to send command (Connection dead?)")
                         # Force close to reset state
