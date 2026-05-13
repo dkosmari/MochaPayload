@@ -19,9 +19,9 @@ def udp_broadcaster():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     msg = b"WIIU_TCP_SYSLOG_BEACON_V1"
-    
+
     print(f"[*] UDP Beacon active on port {UDP_BEACON_PORT}")
-    
+
     while True:
         # Only broadcast if no one is connected
         if current_client is None:
@@ -38,13 +38,13 @@ def heartbeat_loop(sock):
             # If socket is no longer the active client, stop thread
             if sock != current_client:
                 break
-        
+
         try:
             time.sleep(1.0)
             # Send a NULL byte. The Wii U logic ignores this but resets watchdog.
-            sock.sendall(b'\x00') 
+            sock.sendall(b'\x00')
         except:
-            # If send fails, the main handler will catch it eventually, 
+            # If send fails, the main handler will catch it eventually,
             # or we can force close here.
             break
 
@@ -54,37 +54,37 @@ def handle_client(sock, addr):
     global current_client
 
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-    
+
     print(f"\n[+] Connected to {addr[0]}")
     print("[*] Ready for logs (Type commands anytime)...\n")
-    
+
     # Start Heartbeat
     hb_thread = threading.Thread(target=heartbeat_loop, args=(sock,), daemon=True)
     hb_thread.start()
-    
+
     sock.settimeout(1.0)
     rx_buffer = ""
 
     while True:
         try:
             data = sock.recv(4096)
-            if not data: 
+            if not data:
                 print("[!] Remote closed connection.")
                 break
-                                            
+
             # Decode and process lines
             text = data.decode('utf-8', errors='replace')
-            
+
             # Filter NULL bytes (Heartbeat artifacts)
             text = text.replace('\x00', '')
-            
+
             rx_buffer += text
-            
+
             while "\r" in rx_buffer:
                 line, rx_buffer = rx_buffer.split("\r", 1)
                 # Print immediately
                 print(f"{line}")
-                
+
         except socket.timeout:
             if rx_buffer:
                 print(f"{rx_buffer}", end="", flush=True)
@@ -93,10 +93,10 @@ def handle_client(sock, addr):
         except Exception as e:
             print(f"[!] Connection Error: {e}")
             break
-            
+
     print(f"[-] Disconnected from {addr[0]}")
     print(f"Waiting for new connections")
-    
+
     with client_lock:
         if current_client == sock:
             current_client = None
@@ -107,7 +107,7 @@ def handle_client(sock, addr):
 def server_listener():
     """Waits for incoming TCP connections"""
     global current_client
-    
+
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
@@ -118,36 +118,36 @@ def server_listener():
 
     server.listen(1)
     print(f"[*] TCP Server listening on {TCP_PORT}")
-    
+
     while True:
         try:
-            client, addr = server.accept()       
+            client, addr = server.accept()
 
             current_client = client
-            
+
             print(f"[*] Server connected on port {TCP_PORT}")
             # Handle this client in this thread (blocks until disconnect)
             handle_client(client, addr)
-         
+
         except Exception as e:
             print(f"[!] Server Error: {e}")
 
 def main():
     global client_lock
     global current_client
-    
+
     # 1. Start UDP Beacon (Background)
     threading.Thread(target=udp_broadcaster, daemon=True).start()
-    
+
     # 2. Start TCP Server (Background)
     threading.Thread(target=server_listener, daemon=True).start()
-    
+
     # 3. Main Thread: Handle User Input
     try:
         while True:
             # Simple input loop
-            cmd = input() 
-            
+            cmd = input()
+
             with client_lock:
                 if current_client:
                     try:
@@ -155,12 +155,12 @@ def main():
                     except:
                         print("[!] Failed to send command (Connection dead?)")
                         # Force close to reset state
-                        try: current_client.close() 
+                        try: current_client.close()
                         except: pass
                         current_client = None
                 else:
                     print("[!] Not connected to Wii U")
-                    
+
     except (KeyboardInterrupt,EOFError):
         print("\n[*] Exiting...")
         sys.exit(0)
