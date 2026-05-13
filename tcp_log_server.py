@@ -48,7 +48,6 @@ def heartbeat_loop(sock):
             # or we can force close here.
             break
 
-
 def handle_client(sock, addr):
     """Reads logs from Wii U and prints them"""
     global current_client
@@ -164,7 +163,6 @@ def main():
     except (KeyboardInterrupt,EOFError):
         print("\n[*] Exiting...")
         sys.exit(0)
-
 
 if __name__ == "__main__":
     main()

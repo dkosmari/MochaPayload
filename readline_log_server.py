@@ -6,7 +6,6 @@ import readline
 
 import tcp_log_server
 
-
 command_map = {
     "aroma": {
         "help": None,
